@@ -14,10 +14,12 @@ import {
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Phone, Mail } from "lucide-react";
+import CountryCodeSelect from "@/components/CountryCodeSelect";
 
 const Auth = () => {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [countryCode, setCountryCode] = useState("+1");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
@@ -65,8 +67,9 @@ const Auth = () => {
     setLoading(true);
 
     try {
+      const fullPhoneNumber = `${countryCode}${phone.replace(/[^0-9]/g, "")}`;
       const { error } = await supabase.auth.signInWithOtp({
-        phone,
+        phone: fullPhoneNumber,
       });
       if (error) throw error;
       setShowVerification(true);
@@ -90,8 +93,9 @@ const Auth = () => {
     setLoading(true);
 
     try {
+      const fullPhoneNumber = `${countryCode}${phone.replace(/[^0-9]/g, "")}`;
       const { error } = await supabase.auth.verifyOtp({
-        phone,
+        phone: fullPhoneNumber,
         token: verificationCode,
         type: "sms",
       });
@@ -167,13 +171,20 @@ const Auth = () => {
             <TabsContent value="phone">
               {!showVerification ? (
                 <form onSubmit={handlePhoneAuth} className="space-y-4">
-                  <Input
-                    type="tel"
-                    placeholder="Phone number (e.g., +1234567890)"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    required
-                  />
+                  <div className="flex gap-2">
+                    <CountryCodeSelect
+                      value={countryCode}
+                      onChange={setCountryCode}
+                    />
+                    <Input
+                      type="tel"
+                      placeholder="Phone number"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      required
+                      className="flex-1"
+                    />
+                  </div>
                   <Button
                     type="submit"
                     className="w-full bg-whatsapp-primary hover:bg-whatsapp-dark"
