@@ -5,6 +5,15 @@ import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
 import { useNavigate } from "react-router-dom";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Phone, Mail } from "lucide-react";
 
 const Auth = () => {
   const [email, setEmail] = useState("");
@@ -12,9 +21,12 @@ const Auth = () => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
+  const [authMethod, setAuthMethod] = useState<"email" | "phone">("email");
+  const [verificationCode, setVerificationCode] = useState("");
+  const [showVerification, setShowVerification] = useState(false);
   const navigate = useNavigate();
 
-  const handleAuth = async (e: React.FormEvent) => {
+  const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
@@ -23,7 +35,6 @@ const Auth = () => {
         const { error } = await supabase.auth.signUp({
           email,
           password,
-          phone,
         });
         if (error) throw error;
         toast({
@@ -49,67 +60,162 @@ const Auth = () => {
     }
   };
 
+  const handlePhoneAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        phone,
+      });
+      if (error) throw error;
+      setShowVerification(true);
+      toast({
+        title: "Verification code sent",
+        description: "Please check your phone for the verification code.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const verifyOTP = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        phone,
+        token: verificationCode,
+        type: "sms",
+      });
+      if (error) throw error;
+      navigate("/");
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+      <Card className="w-full max-w-md">
+        <CardHeader>
+          <CardTitle className="text-2xl text-center">
             {isSignUp ? "Create your account" : "Sign in to your account"}
-          </h2>
-        </div>
-        <form className="mt-8 space-y-6" onSubmit={handleAuth}>
-          <div className="rounded-md shadow-sm space-y-4">
-            <Input
-              type="email"
-              placeholder="Email address"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-            <Input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-            {isSignUp && (
-              <Input
-                type="tel"
-                placeholder="Phone number (optional)"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-              />
-            )}
-          </div>
+          </CardTitle>
+          <CardDescription className="text-center">
+            {isSignUp
+              ? "Get started with WhatsApp"
+              : "Welcome back to WhatsApp"}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Tabs value={authMethod} onValueChange={(v) => setAuthMethod(v as "email" | "phone")}>
+            <TabsList className="grid w-full grid-cols-2 mb-6">
+              <TabsTrigger value="email" className="flex items-center gap-2">
+                <Mail className="w-4 h-4" />
+                Email
+              </TabsTrigger>
+              <TabsTrigger value="phone" className="flex items-center gap-2">
+                <Phone className="w-4 h-4" />
+                Phone
+              </TabsTrigger>
+            </TabsList>
 
-          <div>
+            <TabsContent value="email">
+              <form onSubmit={handleEmailAuth} className="space-y-4">
+                <Input
+                  type="email"
+                  placeholder="Email address"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+                <Input
+                  type="password"
+                  placeholder="Password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+                <Button
+                  type="submit"
+                  className="w-full bg-whatsapp-primary hover:bg-whatsapp-dark"
+                  disabled={loading}
+                >
+                  {loading
+                    ? "Loading..."
+                    : isSignUp
+                    ? "Sign up with Email"
+                    : "Sign in with Email"}
+                </Button>
+              </form>
+            </TabsContent>
+
+            <TabsContent value="phone">
+              {!showVerification ? (
+                <form onSubmit={handlePhoneAuth} className="space-y-4">
+                  <Input
+                    type="tel"
+                    placeholder="Phone number (e.g., +1234567890)"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    required
+                  />
+                  <Button
+                    type="submit"
+                    className="w-full bg-whatsapp-primary hover:bg-whatsapp-dark"
+                    disabled={loading}
+                  >
+                    {loading ? "Sending code..." : "Send verification code"}
+                  </Button>
+                </form>
+              ) : (
+                <form onSubmit={verifyOTP} className="space-y-4">
+                  <Input
+                    type="text"
+                    placeholder="Enter verification code"
+                    value={verificationCode}
+                    onChange={(e) => setVerificationCode(e.target.value)}
+                    required
+                  />
+                  <Button
+                    type="submit"
+                    className="w-full bg-whatsapp-primary hover:bg-whatsapp-dark"
+                    disabled={loading}
+                  >
+                    {loading ? "Verifying..." : "Verify code"}
+                  </Button>
+                </form>
+              )}
+            </TabsContent>
+          </Tabs>
+
+          <div className="text-center mt-6">
             <Button
-              type="submit"
-              className="w-full bg-whatsapp-primary hover:bg-whatsapp-dark"
-              disabled={loading}
+              variant="link"
+              onClick={() => setIsSignUp(!isSignUp)}
+              className="text-whatsapp-primary"
             >
-              {loading
-                ? "Loading..."
-                : isSignUp
-                ? "Create Account"
-                : "Sign in"}
+              {isSignUp
+                ? "Already have an account? Sign in"
+                : "Need an account? Sign up"}
             </Button>
           </div>
-        </form>
-
-        <div className="text-center">
-          <Button
-            variant="link"
-            onClick={() => setIsSignUp(!isSignUp)}
-            className="text-whatsapp-primary"
-          >
-            {isSignUp
-              ? "Already have an account? Sign in"
-              : "Need an account? Sign up"}
-          </Button>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };
